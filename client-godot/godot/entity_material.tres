@@ -1,0 +1,9 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://dfjwvym0y45jb"]
+
+[ext_resource type="Shader" uid="uid://i1ebyiyklajo" path="res://entity_material.gdshader" id="1_bhr8h"]
+
+[resource]
+resource_local_to_scene = true
+shader = ExtResource("1_bhr8h")
+shader_parameter/tint = Color(1, 1, 1, 1)
+shader_parameter/edge_softness = 0.0

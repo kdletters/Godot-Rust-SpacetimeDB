@@ -1,0 +1,16 @@
+[gd_scene load_steps=2 format=3 uid="uid://c7eqmws08uawu"]
+
+[ext_resource type="Material" uid="uid://dfjwvym0y45jb" path="res://entity_material.tres" id="1_f35xb"]
+
+[node name="PlayerPrefab" type="PlayerController"]
+material = ExtResource("1_f35xb")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Label" type="Label" parent="CanvasLayer"]
+unique_name_in_owner = true
+offset_right = 500.0
+offset_bottom = 100.0
+pivot_offset = Vector2(250, 44)
+theme_override_constants/outline_size = 10
+theme_override_font_sizes/font_size = 32

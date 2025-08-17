@@ -1,0 +1,10 @@
+[gd_scene load_steps=4 format=3 uid="uid://c8r2msseiyllh"]
+
+[ext_resource type="PackedScene" uid="uid://b3bn0wekc5rl7" path="res://prefabs/circle_prefab.tscn" id="1_imvtd"]
+[ext_resource type="PackedScene" uid="uid://c1gr2c5qss7yb" path="res://prefabs/food_prefab.tscn" id="2_ib6jo"]
+[ext_resource type="PackedScene" uid="uid://c7eqmws08uawu" path="res://prefabs/player_prefab.tscn" id="3_ib6jo"]
+
+[node name="PrefabManager" type="PrefabManager"]
+circle_prefab = ExtResource("1_imvtd")
+food_prefab = ExtResource("2_ib6jo")
+player_prefab = ExtResource("3_ib6jo")
