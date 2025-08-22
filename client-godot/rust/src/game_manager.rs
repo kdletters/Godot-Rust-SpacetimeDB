@@ -1,10 +1,6 @@
 use super::*;
-use godot::global::push_warning;
+use crate::global_state::*;
 use spacetimedb_sdk::*;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::OnceCell;
 
 #[derive(GodotClass)]
 #[class(init, base=Node)]
@@ -12,39 +8,8 @@ pub struct GameManager {
     base: Base<Node>,
 }
 
-thread_local! {
-    pub static ENTITIES: RefCell<HashMap<u32, EntityController>> =  RefCell::new(HashMap::new());
-    pub static PLAYERS: RefCell<HashMap<u32, Gd<PlayerController>>> = RefCell::new(HashMap::new());
-}
-pub static LOCAL_IDENTITY: OnceCell<Identity> = OnceCell::const_new();
-
-pub static mut CONN: Option<Arc<DbConnection>> = None;
-pub fn get_connection() -> Option<Arc<DbConnection>> {
-    unsafe {
-        let a = &raw const CONN;
-        if let Some(conn) = (*a).clone() {
-            Some(conn)
-        } else {
-            None
-        }
-    }
-}
-
-pub fn set_connection(conn: DbConnection) {
-    unsafe {
-        CONN = Some(Arc::new(conn));
-    }
-}
-
-pub fn is_connected() -> bool {
-    let result = if let Some(conn) = get_connection() {
-        conn.is_active()
-    } else {
-        false
-    };
-
-    result
-}
+// 全局状态现在通过 global_state 模块管理
+// 不再需要 unsafe 静态变量
 
 impl GameManager {
     const SERVER_URL: &'static str = "http://127.0.0.1:3000";
@@ -54,7 +19,7 @@ impl GameManager {
 #[godot_api]
 impl INode for GameManager {
     fn process(&mut self, _delta: f64) {
-        if let Some(conn) = get_connection() {
+        if let Some(conn) = connection::get_connection() {
             conn.frame_tick()
                 .expect("Failed to process WebSocket messages");
         }
@@ -75,7 +40,7 @@ impl INode for GameManager {
             .with_uri(Self::SERVER_URL)
             .with_module_name(Self::MODULE_NAME);
         let conn = builder.build().unwrap();
-        set_connection(conn);
+        connection::set_connection(conn);
     }
 }
 
@@ -89,9 +54,9 @@ fn handle_connect(_ctx: &DbConnection, identity: Identity, token: &str) {
         godot_error!("Failed to save credentials: {:?}", e);
     }
 
-    LOCAL_IDENTITY.set(identity).expect("TODO: panic message");
+    identity::set_local_identity(identity);
 
-    if let Some(conn) = get_connection() {
+    if let Some(conn) = connection::get_connection() {
         conn.db.circle().on_insert(circle_on_insert);
         conn.db.entity().on_update(entity_on_update);
         conn.db.entity().on_delete(entity_on_delete);
@@ -122,7 +87,7 @@ fn handle_disconnect(_ctx: &ErrorContext, error: Option<Error>) {
 fn handle_subscription_applied(ctx: &SubscriptionEventContext) {
     godot_print!("Subscription applied!");
 
-    if let Some(conn) = get_connection() {
+    if let Some(conn) = connection::get_connection() {
         let world_size = conn.db.config().id().find(&0).unwrap().world_size;
         setup_arena(world_size as u32);
     };
@@ -135,13 +100,11 @@ fn handle_subscription_error(_ctx: &ErrorContext, error: Error) {
 }
 
 fn disconnect() {
-    if let Some(conn) = get_connection() {
+    if let Some(conn) = connection::get_connection() {
         conn.disconnect().unwrap();
     };
 
-    unsafe {
-        CONN = None;
-    }
+    connection::clear_connection();
 }
 
 fn setup_arena(world_size: u32) {
@@ -184,24 +147,21 @@ fn circle_on_insert(_ctx: &EventContext, circle: &Circle) {
     let player = get_or_create_player(circle.player_id);
     if let Some(player) = player {
         let entity = spawn_circle(circle.clone(), player);
-        ENTITIES.with_borrow_mut(|x| x.insert(circle.entity_id, EntityController::Circle(entity)));
+        entities::insert_entity(circle.entity_id, EntityController::Circle(entity));
     }
 }
 
 fn entity_on_update(_ctx: &EventContext, _old_entity: &Entity, new_entity: &Entity) {
     godot_print!("Entity updated!");
 
-    ENTITIES.with_borrow_mut(|x| {
-        x.entry(new_entity.entity_id)
-            .and_modify(|entity_controller| {
-                entity_controller.on_entity_updated(new_entity);
-            });
+    entities::update_entity(new_entity.entity_id, |entity_controller| {
+        entity_controller.on_entity_updated(new_entity);
     });
 }
 
 fn entity_on_delete(_ctx: &EventContext, entity: &Entity) {
     godot_print!("Entity deleted!");
-    if let Some(mut entity_controller) = ENTITIES.with_borrow_mut(|x| x.remove(&entity.entity_id)) {
+    if let Some(mut entity_controller) = entities::remove_entity(entity.entity_id) {
         entity_controller.on_delete();
     };
 }
@@ -214,7 +174,7 @@ fn player_on_insert(_ctx: &EventContext, player: &Player) {
 fn player_on_delete(_ctx: &EventContext, player: &Player) {
     godot_print!("Player deleted!");
 
-    if let Some(mut player_controller) = PLAYERS.with_borrow_mut(|x| x.remove(&player.player_id)) {
+    if let Some(mut player_controller) = players::remove_player(player.player_id) {
         player_controller.bind_mut().base_mut().queue_free();
     };
 }
@@ -222,22 +182,20 @@ fn player_on_delete(_ctx: &EventContext, player: &Player) {
 fn food_on_insert(_ctx: &EventContext, food: &Food) {
     godot_print!("Food inserted!");
     let food_controller = spawn_food(food);
-    ENTITIES.with_borrow_mut(|x| x.insert(food.entity_id, EntityController::Food(food_controller)));
+    entities::insert_entity(food.entity_id, EntityController::Food(food_controller));
 }
 
 fn get_or_create_player(player_id: u32) -> Option<Gd<PlayerController>> {
-    PLAYERS.with_borrow_mut(|x| {
-        if x.contains_key(&player_id) {
-            Some(x.get(&player_id).unwrap().clone())
+    if players::contains_player(player_id) {
+        players::get_player(player_id)
+    } else {
+        if let Some(conn) = connection::get_connection() {
+            let player = conn.db.player().player_id().find(&player_id).unwrap();
+            Some(spawn_player(player))
         } else {
-            if let Some(conn) = get_connection() {
-                let player = conn.db.player().player_id().find(&player_id).unwrap();
-                Some(spawn_player(player))
-            } else {
-                None
-            }
+            None
         }
-    })
+    }
 }
 
 #[godot_api]

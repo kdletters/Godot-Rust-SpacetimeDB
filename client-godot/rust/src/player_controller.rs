@@ -1,8 +1,7 @@
 use super::*;
-use godot::classes::{Input, InputEvent, InputEventKey, Label, Time};
+use crate::global_state::*;
+use godot::classes::{InputEvent, InputEventKey, Label, Time};
 use godot::global::Key;
-use std::sync::Arc;
-use tokio::sync::OnceCell;
 
 #[derive(GodotClass)]
 #[class(init, base=Node2D)]
@@ -21,21 +20,11 @@ pub struct PlayerController {
 unsafe impl Send for PlayerController {}
 unsafe impl Sync for PlayerController {}
 
-pub static mut LOCAL: Option<Arc<Gd<PlayerController>>> = None;
-
-pub fn get_local() -> Option<Arc<Gd<PlayerController>>> {
-    unsafe {
-        let a = &raw const LOCAL;
-        if let Some(conn) = (*a).clone() {
-            Some(conn)
-        } else {
-            None
-        }
-    }
-}
+// 本地玩家现在通过全局状态管理
+// 不再需要 unsafe 静态变量
 
 fn find_entity(entity_id: u32) -> Option<Entity> {
-    if let Some(conn) = get_connection() {
+    if let Some(conn) = connection::get_connection() {
         return conn.db.entity().entity_id().find(&entity_id);
     }
 
@@ -47,7 +36,7 @@ impl PlayerController {
     const SEND_UPDATES_FREQUENCY: f32 = 1.0 / (Self::SEND_UPDATES_PER_SEC as f32);
 
     pub fn username(&self) -> String {
-        get_connection()
+        connection::get_connection()
             .unwrap()
             .db
             .player()
@@ -62,7 +51,7 @@ impl PlayerController {
     }
 
     pub fn is_local_player(&self) -> bool {
-        if let Some(local) = get_local() {
+        if let Some(local) = players::get_local_player() {
             self.to_gd().eq(&*local)
         } else {
             false
@@ -73,14 +62,12 @@ impl PlayerController {
         self.player_id = player.player_id;
         godot_print!(
             "PlayerController::initialize: {}",
-            LOCAL_IDENTITY.get().is_some()
+            identity::get_local_identity().is_some()
         );
-        if let Some(local) = LOCAL_IDENTITY.get()
-            && player.identity == *local
+        if let Some(local) = identity::get_local_identity()
+            && player.identity == local
         {
-            unsafe {
-                LOCAL = Some(Arc::new(self.to_gd()));
-            }
+            players::set_local_player(self.to_gd());
         }
     }
 
@@ -162,7 +149,7 @@ impl INode2D for PlayerController {
             let center_of_screen = screen_size * 0.5;
 
             let direction = (mouse_position - center_of_screen) / (screen_size.y / 3.0);
-            if let Some(conn) = get_connection() {
+            if let Some(conn) = connection::get_connection() {
                 conn.reducers.update_player_input(direction.into()).unwrap()
             }
         }

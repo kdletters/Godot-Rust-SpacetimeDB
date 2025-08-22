@@ -1,4 +1,5 @@
 use super::*;
+use crate::global_state::*;
 use crate::module_bindings::{Entity, EntityTableAccess};
 use godot::classes::{CanvasItem, Node2D, ShaderMaterial};
 use godot::global::sqrt;
@@ -61,7 +62,7 @@ impl EntityData {
     const LERP_DURATION_SEC: f32 = 0.1;
 
     pub fn spawn(&mut self, entity_id: u32, mut node2d: Gd<Node2D>) {
-        let entity = get_connection()
+        let entity = connection::get_connection()
             .unwrap()
             .db
             .entity()

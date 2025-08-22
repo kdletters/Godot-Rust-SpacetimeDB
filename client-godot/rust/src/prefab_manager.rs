@@ -1,5 +1,5 @@
 use super::*;
-use tokio::sync::OnceCell;
+use crate::global_state::prefab_state;
 
 #[derive(GodotClass)]
 #[class(init, base=Node)]
@@ -14,31 +14,25 @@ pub struct PrefabManager {
     player_prefab: Option<Gd<PackedScene>>,
 }
 
-thread_local! {
-    pub static PREFAB_MANAGER_INSTANCE: OnceCell<Gd<PrefabManager>> = OnceCell::const_new();
-}
+// 预制体管理器实例现在通过全局状态管理
 
 #[godot_api]
 impl INode for PrefabManager {
     fn ready(&mut self) {
-        PREFAB_MANAGER_INSTANCE
-            .with(|x| x.set(self.to_gd()))
-            .unwrap();
+        prefab_state::set_instance(self.to_gd());
     }
 }
 
 pub fn spawn_circle(circle: Circle, mut owner: Gd<PlayerController>) -> Gd<CircleController> {
-    let mut entity_controller = PREFAB_MANAGER_INSTANCE.with(|x| {
-        x.get()
-            .unwrap()
-            .bind()
-            .circle_prefab
-            .clone()
-            .unwrap()
-            .instantiate()
-            .unwrap()
-            .cast::<CircleController>()
-    });
+    let mut entity_controller = prefab_state::get_instance()
+        .expect("PrefabManager instance not found")
+        .bind()
+        .circle_prefab
+        .clone()
+        .unwrap()
+        .instantiate()
+        .unwrap()
+        .cast::<CircleController>();
 
     entity_controller
         .bind_mut()
@@ -54,17 +48,15 @@ pub fn spawn_circle(circle: Circle, mut owner: Gd<PlayerController>) -> Gd<Circl
 }
 
 pub fn spawn_food(food: &Food) -> Gd<FoodController> {
-    let mut entity_controller = PREFAB_MANAGER_INSTANCE.with(|x| {
-        x.get()
-            .unwrap()
-            .bind()
-            .food_prefab
-            .clone()
-            .unwrap()
-            .instantiate()
-            .unwrap()
-            .cast::<FoodController>()
-    });
+    let mut entity_controller = prefab_state::get_instance()
+        .expect("PrefabManager instance not found")
+        .bind()
+        .food_prefab
+        .clone()
+        .unwrap()
+        .instantiate()
+        .unwrap()
+        .cast::<FoodController>();
 
     entity_controller
         .bind_mut()
@@ -78,24 +70,23 @@ pub fn spawn_food(food: &Food) -> Gd<FoodController> {
 }
 
 pub fn spawn_player(player: Player) -> Gd<PlayerController> {
-    let mut entity_controller = PREFAB_MANAGER_INSTANCE.with(|x| {
-        x.get()
-            .unwrap()
-            .bind()
-            .player_prefab
-            .clone()
-            .unwrap()
-            .instantiate()
-            .unwrap()
-            .cast::<PlayerController>()
-    });
+    let mut entity_controller = prefab_state::get_instance()
+        .expect("PrefabManager instance not found")
+        .bind()
+        .player_prefab
+        .clone()
+        .unwrap()
+        .instantiate()
+        .unwrap()
+        .cast::<PlayerController>();
 
     entity_controller
         .bind_mut()
         .base_mut()
         .set_name(&format!("PlayerController - {}", player.name));
 
-    entity_controller.bind_mut().initialize(player);
+    entity_controller.bind_mut().initialize(player.clone());
+    players::insert_player(player.player_id, entity_controller.clone());
     get_root().unwrap().add_child(&entity_controller);
 
     entity_controller
