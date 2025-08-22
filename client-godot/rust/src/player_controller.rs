@@ -11,6 +11,10 @@ pub struct PlayerController {
     #[init(node="%Label")]
     label: OnReady<Gd<Label>>,
 
+    #[export]
+    #[init(val = 0.5)]
+    sensitivity: real,
+
     player_id: u32,
     pub last_movement_send_timestamp: f32,
     pub lock_input_position: Option<Vector2>,
@@ -148,7 +152,7 @@ impl INode2D for PlayerController {
             let screen_size = Vector2::new(screen_size.x as f32, screen_size.y as f32);
             let center_of_screen = screen_size * 0.5;
 
-            let direction = (mouse_position - center_of_screen) / (screen_size.y / 3.0);
+            let direction = (mouse_position - center_of_screen) / (screen_size.y / 3.0) * self.sensitivity;
             if let Some(conn) = connection::get_connection() {
                 conn.reducers.update_player_input(direction.into()).unwrap()
             }

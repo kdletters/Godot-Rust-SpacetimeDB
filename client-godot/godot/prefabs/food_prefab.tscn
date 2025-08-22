@@ -1,8 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://c1gr2c5qss7yb"]
+[gd_scene load_steps=3 format=3 uid="uid://sanjly83ob8h"]
 
 [ext_resource type="Material" uid="uid://dfjwvym0y45jb" path="res://entity_material.tres" id="1_6op4v"]
 [ext_resource type="Texture2D" uid="uid://5sc4t0eims82" path="res://circle.tres" id="1_blv74"]
 
-[node name="FoodPrefab" type="FoodController"]
+[node name="FoodPrefab" type="Sprite2D"]
 material = ExtResource("1_6op4v")
 texture = ExtResource("1_blv74")

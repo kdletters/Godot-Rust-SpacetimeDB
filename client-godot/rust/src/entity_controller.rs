@@ -7,7 +7,7 @@ use godot::prelude::*;
 
 pub enum EntityController {
     Circle(Gd<CircleController>),
-    Food(Gd<FoodController>),
+    // Food 已移除，现在使用 FoodBatchRenderer 进行批量渲染
 }
 
 impl EntityController {
@@ -17,10 +17,7 @@ impl EntityController {
                 let node = circle.clone();
                 circle.bind_mut().entity.on_entity_updated(entity, node);
             }
-            EntityController::Food(food) => {
-                let node = food.clone();
-                food.bind_mut().entity.on_entity_updated(entity, node);
-            }
+            // Food 变体已移除，由 FoodBatchRenderer 处理
         }
     }
 
@@ -30,10 +27,7 @@ impl EntityController {
                 let node = circle.clone();
                 circle.bind_mut().entity.on_delete(node);
             }
-            EntityController::Food(food) => {
-                let node = food.clone();
-                food.bind_mut().entity.on_delete(node);
-            }
+            // Food 变体已移除，由 FoodBatchRenderer 处理
         }
     }
 }

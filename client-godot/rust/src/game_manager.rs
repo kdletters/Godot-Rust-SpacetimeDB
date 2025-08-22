@@ -1,5 +1,8 @@
 use super::*;
 use crate::global_state::*;
+use crate::global_state::food_batch_renderer;
+use crate::camera_controller::WORLD_SIZE;
+use godot::classes::Engine;
 use spacetimedb_sdk::*;
 
 #[derive(GodotClass)]
@@ -14,6 +17,34 @@ pub struct GameManager {
 impl GameManager {
     const SERVER_URL: &'static str = "http://127.0.0.1:3000";
     const MODULE_NAME: &'static str = "blackholio";
+    
+    /// 初始化食物批量渲染器
+    fn setup_food_batch_renderer(&mut self) {
+        // 创建食物批量渲染器实例
+        let mut food_renderer = FoodBatchRenderer::new_alloc();
+        
+        // 设置名称以便调试
+        food_renderer.set_name("FoodBatchRenderer");
+        
+        // 设置为全屏大小（覆盖整个游戏世界）
+        food_renderer.set_anchor(godot::builtin::Side::LEFT, 0.0);
+        food_renderer.set_anchor(godot::builtin::Side::TOP, 0.0);
+        food_renderer.set_anchor(godot::builtin::Side::RIGHT, 1.0);
+        food_renderer.set_anchor(godot::builtin::Side::BOTTOM, 1.0);
+        
+        // 将渲染器添加到游戏世界中
+        if let Some(mut root) = get_root() {
+            root.call_deferred("add_child", &[food_renderer.to_variant()]);
+            godot_print!("FoodBatchRenderer added to scene tree");
+        } else {
+            godot_error!("Failed to get root node for FoodBatchRenderer");
+        }
+        
+        // 将实例注册到全局状态
+        food_batch_renderer::set_instance(food_renderer);
+        
+        godot_print!("FoodBatchRenderer setup completed");
+    }
 }
 
 #[godot_api]
@@ -31,6 +62,9 @@ impl INode for GameManager {
 
     fn ready(&mut self) {
         Engine::singleton().set_max_fps(60);
+
+        // 初始化食物批量渲染器
+        self.setup_food_batch_renderer();
 
         let builder = DbConnection::builder()
             .on_connect(handle_connect)
@@ -154,6 +188,15 @@ fn circle_on_insert(_ctx: &EventContext, circle: &Circle) {
 fn entity_on_update(_ctx: &EventContext, _old_entity: &Entity, new_entity: &Entity) {
     godot_print!("Entity updated!");
 
+    // 检查是否是食物实体，如果是则使用批量渲染器处理
+    if food_batch_renderer::is_food_entity(new_entity.entity_id) {
+        if let Some(mut batch_renderer) = food_batch_renderer::get_instance() {
+            batch_renderer.bind_mut().update_food_entity(new_entity);
+        }
+        return;
+    }
+
+    // 其他实体的处理保持不变
     entities::update_entity(new_entity.entity_id, |entity_controller| {
         entity_controller.on_entity_updated(new_entity);
     });
@@ -161,6 +204,16 @@ fn entity_on_update(_ctx: &EventContext, _old_entity: &Entity, new_entity: &Enti
 
 fn entity_on_delete(_ctx: &EventContext, entity: &Entity) {
     godot_print!("Entity deleted!");
+    
+    // 检查是否是食物实体，如果是则从批量渲染器中移除
+    if food_batch_renderer::is_food_entity(entity.entity_id) {
+        if let Some(mut batch_renderer) = food_batch_renderer::get_instance() {
+            batch_renderer.bind_mut().remove_food(entity.entity_id);
+        }
+        return;
+    }
+    
+    // 其他实体的处理保持不变
     if let Some(mut entity_controller) = entities::remove_entity(entity.entity_id) {
         entity_controller.on_delete();
     };
@@ -180,9 +233,38 @@ fn player_on_delete(_ctx: &EventContext, player: &Player) {
 }
 
 fn food_on_insert(_ctx: &EventContext, food: &Food) {
-    godot_print!("Food inserted!");
-    let food_controller = spawn_food(food);
-    entities::insert_entity(food.entity_id, EntityController::Food(food_controller));
+    godot_print!("Food inserted! entity_id: {}", food.entity_id);
+    
+    // 不再创建独立节点，而是添加到批量渲染器
+    match food_batch_renderer::get_instance() {
+        Some(mut batch_renderer) => {
+            godot_print!("Adding food {} to batch renderer", food.entity_id);
+            batch_renderer.bind_mut().add_food(food);
+            
+            // 获取当前食物数量
+            let food_count = batch_renderer.bind().get_food_count();
+            godot_print!("Total foods in batch renderer: {}", food_count);
+        },
+        None => {
+            godot_error!("FoodBatchRenderer instance not found! Creating new instance...");
+            
+            // 如果没有实例，尝试创建一个
+            let mut food_renderer = FoodBatchRenderer::new_alloc();
+            food_renderer.set_name("FoodBatchRenderer");
+            
+            // 添加到场景中
+            if let Some(mut root) = get_root() {
+                root.add_child(&food_renderer);
+                food_batch_renderer::set_instance(food_renderer.clone());
+                
+                // 现在添加食物
+                food_renderer.bind_mut().add_food(food);
+                godot_print!("Created new FoodBatchRenderer and added food {}", food.entity_id);
+            } else {
+                godot_error!("Failed to get root node when creating FoodBatchRenderer");
+            }
+        }
+    }
 }
 
 fn get_or_create_player(player_id: u32) -> Option<Gd<PlayerController>> {

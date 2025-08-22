@@ -9,8 +9,6 @@ pub struct PrefabManager {
     #[export]
     circle_prefab: Option<Gd<PackedScene>>,
     #[export]
-    food_prefab: Option<Gd<PackedScene>>,
-    #[export]
     player_prefab: Option<Gd<PackedScene>>,
 }
 
@@ -47,27 +45,7 @@ pub fn spawn_circle(circle: Circle, mut owner: Gd<PlayerController>) -> Gd<Circl
     entity_controller
 }
 
-pub fn spawn_food(food: &Food) -> Gd<FoodController> {
-    let mut entity_controller = prefab_state::get_instance()
-        .expect("PrefabManager instance not found")
-        .bind()
-        .food_prefab
-        .clone()
-        .unwrap()
-        .instantiate()
-        .unwrap()
-        .cast::<FoodController>();
-
-    entity_controller
-        .bind_mut()
-        .base_mut()
-        .set_name(&format!("Food - {}", food.entity_id));
-
-    entity_controller.bind_mut().spawn(food);
-    get_root().unwrap().add_child(&entity_controller);
-
-    entity_controller
-}
+// spawn_food 函数已移除，现在使用 FoodBatchRenderer 进行批量渲染
 
 pub fn spawn_player(player: Player) -> Gd<PlayerController> {
     let mut entity_controller = prefab_state::get_instance()

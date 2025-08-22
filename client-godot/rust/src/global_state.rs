@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 use std::cell::RefCell;
-use crate::{DbConnection, EntityController, PlayerController, PrefabManager};
+use crate::{DbConnection, EntityController, PlayerController, PrefabManager, FoodBatchRenderer};
 use spacetimedb_sdk::Identity;
 use godot::prelude::*;
 
@@ -23,6 +23,7 @@ thread_local! {
     static PLAYERS: RefCell<HashMap<u32, Gd<PlayerController>>> = RefCell::new(HashMap::new());
     static LOCAL_PLAYER: RefCell<Option<Arc<Gd<PlayerController>>>> = RefCell::new(None);
     static PREFAB_MANAGER: RefCell<Option<Gd<PrefabManager>>> = RefCell::new(None);
+    static FOOD_BATCH_RENDERER: RefCell<Option<Gd<FoodBatchRenderer>>> = RefCell::new(None);
 }
 
 /// 连接管理函数
@@ -180,5 +181,33 @@ pub mod prefab_state {
         PREFAB_MANAGER.with_borrow(|manager| {
             manager.clone()
         })
+    }
+}
+
+/// 食物批量渲染器状态管理函数
+pub mod food_batch_renderer {
+    use super::*;
+
+    /// 设置食物批量渲染器实例
+    pub fn set_instance(instance: Gd<FoodBatchRenderer>) {
+        FOOD_BATCH_RENDERER.with_borrow_mut(|renderer| {
+            *renderer = Some(instance);
+        });
+    }
+
+    /// 获取食物批量渲染器实例
+    pub fn get_instance() -> Option<Gd<FoodBatchRenderer>> {
+        FOOD_BATCH_RENDERER.with_borrow(|renderer| {
+            renderer.clone()
+        })
+    }
+
+    /// 检查是否是食物实体
+    pub fn is_food_entity(entity_id: u32) -> bool {
+        if let Some(renderer) = get_instance() {
+            renderer.bind().contains_food(entity_id)
+        } else {
+            false
+        }
     }
 }
