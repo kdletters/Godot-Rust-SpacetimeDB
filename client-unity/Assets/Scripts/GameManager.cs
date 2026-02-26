@@ -20,7 +20,7 @@ public class GameManager : MonoBehaviour
     public TMP_InputField accountInput;
     public Button logoutBtn;
 
-	public static GameManager Instance { get; private set; }
+    public static GameManager Instance { get; private set; }
     public static Identity LocalIdentity { get; private set; }
     public static DbConnection Conn { get; private set; }
 
@@ -30,7 +30,7 @@ public class GameManager : MonoBehaviour
     public void Start()
     {
         var account = accountInput.text;
-        
+
         Instance = this;
         Application.targetFrameRate = 60;
         Application.runInBackground = true;
@@ -38,11 +38,12 @@ public class GameManager : MonoBehaviour
         // In order to build a connection to SpacetimeDB we need to register
         // our callbacks and specify a SpacetimeDB server URI and module name.
         var builder = DbConnection.Builder()
-            .OnConnect(HandleConnect)
-            .OnConnectError(HandleConnectError)
-            .OnDisconnect(HandleDisconnect)
-            .WithUri(SERVER_URL)
-            .WithModuleName(MODULE_NAME);
+                                  .OnConnect(HandleConnect)
+                                  .OnConnectError(HandleConnectError)
+                                  .OnDisconnect(HandleDisconnect)
+                                  .WithConfirmedReads(false)
+                                  .WithUri(SERVER_URL)
+                                  .WithDatabaseName(MODULE_NAME);
 
         // If the user has a SpacetimeDB auth token stored in the Unity PlayerPrefs,
         // we can use it to authenticate the connection.
@@ -63,7 +64,7 @@ public class GameManager : MonoBehaviour
         Debug.Log($"identity: {identity}, token: {token}");
         AuthToken.SaveToken(token);
         LocalIdentity = identity;
-        
+
         accountInput.gameObject.SetActive(false);
         logoutBtn.gameObject.SetActive(true);
 
@@ -94,7 +95,7 @@ public class GameManager : MonoBehaviour
         {
             Debug.LogException(ex);
         }
-        
+
         accountInput.gameObject.SetActive(true);
         logoutBtn.gameObject.SetActive(false);
     }
@@ -123,7 +124,7 @@ public class GameManager : MonoBehaviour
         Conn.Disconnect();
         Conn = null;
     }
-    
+
     private void SetupArena(float worldSize)
     {
         CreateBorderCube(new Vector2(worldSize / 2.0f, worldSize + borderThickness / 2),
@@ -147,7 +148,7 @@ public class GameManager : MonoBehaviour
         cube.transform.position = new Vector3(position.x, position.y, 1);
         cube.GetComponent<MeshRenderer>().material = borderMaterial;
     }
-    
+
     private static void CircleOnInsert(EventContext context, Circle insertedValue)
     {
         var player = GetOrCreatePlayer(insertedValue.PlayerId);
@@ -157,6 +158,7 @@ public class GameManager : MonoBehaviour
 
     private static void EntityOnUpdate(EventContext context, Entity oldEntity, Entity newEntity)
     {
+        Debug.Log($"[{Time.time}] Entity updated");
         if (!Entities.TryGetValue(newEntity.EntityId, out var entityController))
         {
             return;

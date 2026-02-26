@@ -1,5 +1,6 @@
 use super::*;
 use crate::global_state::*;
+use crate::extensions::*;
 use crate::module_bindings::Food;
 use crate::entity_controller::mass_to_scale;
 use godot::classes::{Control, IControl, Texture2D};
@@ -22,6 +23,9 @@ pub struct FoodBatchRenderer {
     
     /// 食物纹理
     texture: Option<Gd<Texture2D>>,
+
+    /// 上次重绘时的相机位置
+    last_drawn_camera_pos: Vector2,
 }
 
 /// 食物渲染数据
@@ -137,7 +141,7 @@ impl FoodBatchRenderer {
             // 重置插值动画
             food_data.lerp_data.lerp_time = 0.0;
             food_data.lerp_data.start_position = food_data.position;
-            food_data.lerp_data.target_position = (&entity.position).into();
+            food_data.lerp_data.target_position = entity.position.clone().into();
             food_data.lerp_data.target_scale = mass_to_scale(entity.mass);
             
             self.needs_redraw = true;
@@ -159,7 +163,7 @@ impl FoodBatchRenderer {
     /// 性能优化：视锥剔除检查
     fn should_render_food(&self, food_data: &FoodRenderData, camera_bounds: Rect2) -> bool {
         let food_bounds = Rect2::new(
-            food_data.position - (food_data.scale * FOOD_SIZE) * 0.5,
+            Vector2::new(food_data.position.x, -food_data.position.y) - (food_data.scale * FOOD_SIZE) * 0.5,
             food_data.scale * FOOD_SIZE
         );
         // 添加边距以确保边缘食物也能正常显示
@@ -167,11 +171,13 @@ impl FoodBatchRenderer {
             camera_bounds.position - Vector2::splat(CULLING_MARGIN),
             camera_bounds.size + Vector2::splat(CULLING_MARGIN * 2.0)
         );
+
         extended_camera_bounds.intersects(food_bounds)
     }
     
     /// 性能优化：获取食物LOD级别
     fn get_food_lod(&self, distance_to_camera: f32) -> FoodLOD {
+        return FoodLOD::Low;
         if distance_to_camera < LOD_DISTANCE_HIGH {
             FoodLOD::High
         } else if distance_to_camera < LOD_DISTANCE_MEDIUM {
@@ -182,10 +188,8 @@ impl FoodBatchRenderer {
     }
     
     /// 计算食物到摄像机的距离
-    fn calculate_distance_to_camera(&self, food_position: Vector2) -> f32 {
-        // 简单的距离计算，实际项目中可以使用摄像机位置
-        // 这里假设摄像机在原点附近
-        food_position.length()
+    fn calculate_distance_to_camera(&self, food_position: Vector2, camera_center: Vector2) -> f32 {
+        food_position.distance_to(camera_center)
     }
     
     /// 更新食物插值动画
@@ -244,6 +248,16 @@ impl IControl for FoodBatchRenderer {
     fn process(&mut self, delta: f64) {
         let delta = delta as f32;
         let mut needs_redraw = false;
+
+        // 检查相机移动是否超过阈值
+        if let Some(viewport) = self.base().get_viewport() {
+            if let Some(camera) = viewport.get_camera_2d() {
+                let camera_pos = camera.get_screen_center_position();
+                if camera_pos.distance_to(self.last_drawn_camera_pos) > CULLING_MARGIN {
+                    needs_redraw = true;
+                }
+            }
+        }
         
         // 更新所有食物的插值动画
         let mut entities_to_update = Vec::new();
@@ -274,13 +288,31 @@ impl IControl for FoodBatchRenderer {
             return; // 没有食物需要绘制
         }
         
-        godot_print!("Drawing {} foods", foods_to_draw.len());
+        // 获取实际的相机范围
+        let viewport = self.base().get_viewport().unwrap();
+        let camera = viewport.get_camera_2d();
         
-        // 简单的摄像机边界计算（实际项目中应该从摄像机获取）
-        let camera_bounds = Rect2::new(
-            Vector2::new(-1000.0, -1000.0),
-            Vector2::new(2000.0, 2000.0)
-        );
+        let camera_bounds = if let Some(camera) = camera {
+            let center = camera.get_screen_center_position();
+            let zoom = camera.get_zoom();
+            let viewport_size = viewport.get_visible_rect().size;
+            
+            // 计算相机在世界坐标中的实际可见大小
+            // zoom 是缩放倍数，例如 zoom 为 2.0 表示放大一倍（物体变大，视野变小）
+            // 所以视野大小 = 像素大小 / zoom
+            let real_size = Vector2::new(viewport_size.x / zoom.x, viewport_size.y / zoom.y);
+            
+            Rect2::new(
+                center - real_size * 0.5,
+                real_size
+            )
+        } else {
+            // 如果没有相机，使用默认的大范围
+            Rect2::new(
+                Vector2::new(0.0, -4000.0),
+                Vector2::new(4000.0, 4000.0)
+            )
+        };
         
         let mut rendered_count = 0;
         let mut culled_count = 0;
@@ -288,15 +320,23 @@ impl IControl for FoodBatchRenderer {
         // 提前克隆纹理以避免借用冲突
         let texture = self.texture.clone();
         
+        // 提取相机中心位置用于距离计算
+        let camera_center = camera_bounds.position + camera_bounds.size * 0.5;
+
+        // 更新上次绘制的相机位置
+        self.last_drawn_camera_pos = camera_center;
+        
         for food_data in foods_to_draw {
             // 视锥剔除检查
             if !self.should_render_food(&food_data, camera_bounds) {
                 culled_count += 1;
                 continue;
             }
-            
+
+            godot_warn!("food_bounds: {:?}", food_data.position);
+            godot_warn!("extended_camera_bounds: {:?}", camera_bounds);
             // 计算到摄像机的距离
-            let distance = self.calculate_distance_to_camera(food_data.position);
+            let distance = self.calculate_distance_to_camera(food_data.position, camera_center);
             let lod = self.get_food_lod(distance);
             
             // 计算绘制矩形

@@ -24,7 +24,7 @@ public abstract class EntityController : MonoBehaviour
         EntityId = entityId;
 
         var entity = GameManager.Conn.Db.Entity.EntityId.Find(entityId);
-        LerpStartPosition = LerpTargetPosition = transform.position = (Vector2)entity.Position;
+        LerpStartPosition = LerpTargetPosition = transform.position = (Vector2) entity.Position;
         transform.localScale = Vector3.one;
         TargetScale = MassToScale(entity.Mass);
     }
@@ -38,8 +38,10 @@ public abstract class EntityController : MonoBehaviour
     {
         LerpTime = 0.0f;
         LerpStartPosition = transform.position;
-        LerpTargetPosition = (Vector2)newVal.Position;
+        LerpTargetPosition = (Vector2) newVal.Position;
         TargetScale = MassToScale(newVal.Mass);
+
+        Debug.Log($"[{System.DateTime.Now.Millisecond}] Entity {EntityId} updated to {newVal.Position}");
     }
 
     public virtual void OnDelete(EventContext context)

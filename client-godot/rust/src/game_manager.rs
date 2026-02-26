@@ -31,6 +31,7 @@ impl GameManager {
         food_renderer.set_anchor(godot::builtin::Side::TOP, 0.0);
         food_renderer.set_anchor(godot::builtin::Side::RIGHT, 1.0);
         food_renderer.set_anchor(godot::builtin::Side::BOTTOM, 1.0);
+        food_renderer.set_scale(Vector2::new(1.0, -1.0));
         
         // 将渲染器添加到游戏世界中
         if let Some(mut root) = get_root() {
@@ -71,8 +72,9 @@ impl INode for GameManager {
             .on_connect_error(handle_connect_error)
             .on_disconnect(handle_disconnect)
             .with_token(creds_store().load().expect("Failed to load credentials"))
+            .with_confirmed_reads(false)
             .with_uri(Self::SERVER_URL)
-            .with_module_name(Self::MODULE_NAME);
+            .with_database_name(Self::MODULE_NAME);
         let conn = builder.build().unwrap();
         connection::set_connection(conn);
     }
@@ -147,19 +149,19 @@ fn setup_arena(world_size: u32) {
 
     let thickness = 2.0;
     create_border_cube(
-        Vector2::new(world_size / 2.0, world_size + thickness / 2.0),
+        Vector2::new(world_size / 2.0, -(world_size + thickness / 2.0)),
         Vector2::new(world_size + thickness * 2.0, thickness),
     );
     create_border_cube(
-        Vector2::new(world_size / 2.0, -thickness / 2.0),
+        Vector2::new(world_size / 2.0, thickness / 2.0),
         Vector2::new(world_size + thickness * 2.0, thickness),
     );
     create_border_cube(
-        Vector2::new(world_size + thickness / 2.0, world_size / 2.0),
+        Vector2::new(world_size + thickness / 2.0, -world_size / 2.0),
         Vector2::new(thickness, world_size + thickness * 2.0),
     );
     create_border_cube(
-        Vector2::new(-thickness / 2.0, world_size / 2.0),
+        Vector2::new(-thickness / 2.0, -world_size / 2.0),
         Vector2::new(thickness, world_size + thickness * 2.0),
     );
 }

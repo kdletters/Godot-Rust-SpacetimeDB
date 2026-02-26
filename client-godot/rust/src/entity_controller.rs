@@ -1,5 +1,6 @@
 use super::*;
 use crate::global_state::*;
+use crate::extensions::*;
 use crate::module_bindings::{Entity, EntityTableAccess};
 use godot::classes::{CanvasItem, Node2D, ShaderMaterial};
 use godot::global::sqrt;
@@ -16,8 +17,7 @@ impl EntityController {
             EntityController::Circle(circle) => {
                 let node = circle.clone();
                 circle.bind_mut().entity.on_entity_updated(entity, node);
-            }
-            // Food 变体已移除，由 FoodBatchRenderer 处理
+            } // Food 变体已移除，由 FoodBatchRenderer 处理
         }
     }
 
@@ -26,8 +26,7 @@ impl EntityController {
             EntityController::Circle(circle) => {
                 let node = circle.clone();
                 circle.bind_mut().entity.on_delete(node);
-            }
-            // Food 变体已移除，由 FoodBatchRenderer 处理
+            } // Food 变体已移除，由 FoodBatchRenderer 处理
         }
     }
 }
@@ -64,7 +63,7 @@ impl EntityData {
             .find(&entity_id)
             .unwrap();
 
-        let position = entity.position.into();
+        let position = entity.position.to_godot_pos();
         node2d.set_scale(Vector2::ONE);
         node2d.set_global_position(position);
 
@@ -85,7 +84,7 @@ impl EntityData {
     pub fn on_entity_updated<T: Inherits<Node2D>>(&mut self, entity: &Entity, node2d: Gd<T>) {
         self.lerp_time = 0.0;
         self.lerp_start_position = node2d.upcast::<Node2D>().get_position();
-        self.lerp_target_position = (&entity.position).into();
+        self.lerp_target_position = entity.position.to_godot_pos();
         self.target_scale = mass_to_scale(entity.mass);
     }
 

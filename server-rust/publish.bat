@@ -1,0 +1,1 @@
+spacetime publish --server local blackholio

@@ -80,7 +80,7 @@ impl ICamera2D for CameraController {
 
 impl CameraController {
     fn calculate_camera_size(&self, player: Gd<PlayerController>) -> f32 {
-        50.0 + f32::min(50.0, player.bind().total_mass() as f32 / 5.0)
+        70.0 + f32::min(50.0, player.bind().total_mass() as f32 / 5.0)
             + isize::min(player.bind().number_of_owned_circles() - 1, 1) as f32 * 30.0
     }
 

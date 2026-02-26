@@ -1,0 +1,1 @@
+spacetime generate --lang rust --out-dir ../../module_bindings --module-path .

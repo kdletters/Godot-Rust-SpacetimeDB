@@ -4,11 +4,12 @@ use math::*;
 
 use log::{debug, info};
 use spacetimedb::{
-    rand::Rng, Identity, ReducerContext, ScheduleAt, SpacetimeType, Table, Timestamp,
+    rand::Rng, view, AnonymousViewContext, Identity, ReducerContext, ScheduleAt, SpacetimeType,
+    Table, Timestamp,
 };
 use std::time::Duration;
 
-#[spacetimedb::table(name = spawn_food_timer, scheduled(spawn_food))]
+#[spacetimedb::table(accessor =spawn_food_timer, scheduled(spawn_food))]
 pub struct SpawnFoodTimer {
     #[primary_key]
     #[auto_inc]
@@ -18,14 +19,14 @@ pub struct SpawnFoodTimer {
 
 // We're using this table as a singleton, so in this table
 // there only be one element where the `id` is 0.
-#[spacetimedb::table(name = config, public)]
+#[spacetimedb::table(accessor =config, public)]
 pub struct Config {
     #[primary_key]
     pub id: u32,
     pub world_size: u64,
 }
 
-#[spacetimedb::table(name = entity, public)]
+#[spacetimedb::table(accessor =entity, public)]
 #[derive(Debug, Clone)]
 pub struct Entity {
     // The `auto_inc` attribute indicates to SpacetimeDB that
@@ -37,7 +38,7 @@ pub struct Entity {
     pub mass: u32,
 }
 
-#[spacetimedb::table(name = circle, public)]
+#[spacetimedb::table(accessor =circle, public)]
 pub struct Circle {
     #[primary_key]
     pub entity_id: u32,
@@ -48,14 +49,14 @@ pub struct Circle {
     pub last_split_time: Timestamp,
 }
 
-#[spacetimedb::table(name = food, public)]
+#[spacetimedb::table(accessor =food, public)]
 pub struct Food {
     #[primary_key]
     pub entity_id: u32,
 }
 
-#[spacetimedb::table(name = player, public)]
-#[spacetimedb::table(name = logged_out_player)]
+#[spacetimedb::table(accessor =player, public)]
+#[spacetimedb::table(accessor =logged_out_player)]
 #[derive(Debug, Clone)]
 pub struct Player {
     #[primary_key]
@@ -91,7 +92,7 @@ pub fn init(ctx: &ReducerContext) -> Result<(), String> {
 #[spacetimedb::reducer(client_connected)]
 pub fn connect(ctx: &ReducerContext) -> Result<(), String> {
     // Check if the player was previously logged out
-    if let Some(player) = ctx.db.logged_out_player().identity().find(&ctx.sender) {
+    if let Some(player) = ctx.db.logged_out_player().identity().find(&ctx.sender()) {
         ctx.db.player().insert(player.clone());
         ctx.db
             .logged_out_player()
@@ -100,7 +101,7 @@ pub fn connect(ctx: &ReducerContext) -> Result<(), String> {
 
         // Log connection with existing player
         let str = if player.name.is_empty() {
-            ctx.sender.to_string()
+            ctx.sender().to_string()
         } else {
             player.name
         };
@@ -108,12 +109,12 @@ pub fn connect(ctx: &ReducerContext) -> Result<(), String> {
     } else {
         // Create a new player with empty name
         ctx.db.player().try_insert(Player {
-            identity: ctx.sender,
+            identity: ctx.sender(),
             player_id: 0,
             name: String::new(),
         })?;
 
-        log::info!("New player connected with identity: {:?}", ctx.sender);
+        log::info!("New player connected with identity: {:?}", ctx.sender());
     }
 
     Ok(())
@@ -125,11 +126,11 @@ pub fn disconnect(ctx: &ReducerContext) -> Result<(), String> {
         .db
         .player()
         .identity()
-        .find(&ctx.sender)
+        .find(&ctx.sender())
         .ok_or("Player not found")?;
     let player_id = player.player_id;
     ctx.db.logged_out_player().insert(player);
-    ctx.db.player().identity().delete(&ctx.sender);
+    ctx.db.player().identity().delete(&ctx.sender());
 
     // Remove any circles from the arena
     for circle in ctx.db.circle().player_id().filter(&player_id) {
@@ -142,7 +143,7 @@ pub fn disconnect(ctx: &ReducerContext) -> Result<(), String> {
 
 #[spacetimedb::reducer]
 pub fn debug(ctx: &ReducerContext) -> Result<(), String> {
-    log::debug!("This reducer was called by {}.", ctx.sender);
+    log::debug!("This reducer was called by {}.", ctx.sender());
     Ok(())
 }
 
@@ -202,7 +203,7 @@ pub fn enter_game(ctx: &ReducerContext, name: String) -> Result<(), String> {
         .db
         .player()
         .identity()
-        .find(ctx.sender)
+        .find(ctx.sender())
         .ok_or("Player not found")?;
     let player_id = player.player_id;
 
@@ -266,7 +267,7 @@ pub fn update_player_input(ctx: &ReducerContext, direction: DbVector2) -> Result
         .db
         .player()
         .identity()
-        .find(&ctx.sender)
+        .find(&ctx.sender())
         .ok_or("Player not found")?;
     for mut circle in ctx.db.circle().player_id().filter(&player.player_id) {
         circle.direction = direction.normalized();
@@ -276,7 +277,7 @@ pub fn update_player_input(ctx: &ReducerContext, direction: DbVector2) -> Result
     Ok(())
 }
 
-#[spacetimedb::table(name = move_all_players_timer, scheduled(move_all_players))]
+#[spacetimedb::table(accessor =move_all_players_timer, scheduled(move_all_players))]
 pub struct MoveAllPlayersTimer {
     #[primary_key]
     #[auto_inc]

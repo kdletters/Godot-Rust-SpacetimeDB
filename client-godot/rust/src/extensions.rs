@@ -30,3 +30,34 @@ impl From<&Vector2> for DbVector2 {
         }
     }
 }
+
+pub trait DbVector2Ext {
+    fn to_godot_pos(&self) -> Vector2;
+}
+
+impl DbVector2Ext for DbVector2 {
+    fn to_godot_pos(&self) -> Vector2 {
+        Vector2::new(self.x, -self.y)
+    }
+}
+
+pub trait Vector2Ext {
+    fn to_db_pos(&self) -> DbVector2;
+    fn to_db_vec(&self) -> DbVector2;
+}
+
+impl Vector2Ext for Vector2 {
+    fn to_db_pos(&self) -> DbVector2 {
+        DbVector2 {
+            x: self.x,
+            y: -self.y,
+        }
+    }
+
+    fn to_db_vec(&self) -> DbVector2 {
+        DbVector2 {
+            x: self.x,
+            y: -self.y,
+        }
+    }
+}

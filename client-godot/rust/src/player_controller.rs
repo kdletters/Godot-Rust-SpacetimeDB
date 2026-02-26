@@ -1,5 +1,6 @@
 use super::*;
 use crate::global_state::*;
+use crate::extensions::*;
 use godot::classes::{InputEvent, InputEventKey, Label, Time};
 use godot::global::Key;
 
@@ -154,7 +155,7 @@ impl INode2D for PlayerController {
 
             let direction = (mouse_position - center_of_screen) / (screen_size.y / 3.0) * self.sensitivity;
             if let Some(conn) = connection::get_connection() {
-                conn.reducers.update_player_input(direction.into()).unwrap()
+                conn.reducers.update_player_input(direction.to_db_vec()).unwrap()
             }
         }
     }
