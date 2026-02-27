@@ -1,1 +1,1 @@
-spacetime generate --lang rust --out-dir client-godot/rust/src/module_bindings --module-path server-rust
+spacetime generate
