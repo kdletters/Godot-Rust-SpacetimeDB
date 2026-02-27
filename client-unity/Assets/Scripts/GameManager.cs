@@ -41,7 +41,6 @@ public class GameManager : MonoBehaviour
                                   .OnConnect(HandleConnect)
                                   .OnConnectError(HandleConnectError)
                                   .OnDisconnect(HandleDisconnect)
-                                  .WithConfirmedReads(false)
                                   .WithUri(SERVER_URL)
                                   .WithDatabaseName(MODULE_NAME);
 

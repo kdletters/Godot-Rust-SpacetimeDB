@@ -5,3 +5,5 @@ Temp/
 Build/
 *.csproj
 *.sln
+UserSettings/
+Packages/packages-lock.json

@@ -72,7 +72,6 @@ impl INode for GameManager {
             .on_connect_error(handle_connect_error)
             .on_disconnect(handle_disconnect)
             .with_token(creds_store().load().expect("Failed to load credentials"))
-            .with_confirmed_reads(false)
             .with_uri(Self::SERVER_URL)
             .with_database_name(Self::MODULE_NAME);
         let conn = builder.build().unwrap();
