@@ -7,5 +7,4 @@ This is a demo for how to use SpacetimeDB in Godot with Rust, based on unity dem
 It looks good and works well.
 
 ## Problems
-* Godot axis-y is opposite to Unity, if you connect unity and godot to the same db, you will find the position of the object is different.
 * Using Rust syntax in Godot is "weird", like if you have a `process`, then you can't borrow it in other places, so I write some eccentric code to make it work.
